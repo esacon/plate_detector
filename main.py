@@ -28,34 +28,29 @@ def get_plate_number():
             close_camera()
             break
 
-        # Press 's' key to save and analyze image.
-        if save_key == ord('s'):
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # Convert to GREY scale.
-            gray = cv2.bilateralFilter(gray, 11, 17, 17)  # Blur to reduce noise.
-            edged = cv2.Canny(gray, 30, 200)  # Canny Edge Method to perform edge detection.
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # Convert to GREY scale.
+        gray = cv2.bilateralFilter(gray, 11, 17, 17)  # Blur to reduce noise.
+        edged = cv2.Canny(gray, 30, 200)  # Canny Edge Method to perform edge detection.
 
-            # Find contour of the plate.
-            cnts = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            cnts = imutils.grab_contours(cnts)
-            cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:10]
-            screen_counter = None
-            for c in cnts:
-                peri = cv2.arcLength(c, True)
-                approx = cv2.approxPolyDP(c, 0.018 * peri, True)
-                # Rectangular counter
-                if len(approx) == 4:
-                    screen_counter = approx
-                    break
+        # Find contour of the plate.
+        cnts = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = imutils.grab_contours(cnts)
+        cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:10]
+        screen_counter = None
+        for c in cnts:
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.018 * peri, True)
+            # Rectangular counter
+            if len(approx) == 4:
+                screen_counter = approx
+                break
 
-            if screen_counter is None:
-                print("No hay contorno detectado.")
-                continue
-
+        if screen_counter is not None:
             # Draw a green counter on a new image of the plate.
             cv2.drawContours(image, [screen_counter], -1, (0, 255, 0), 3)
             mask = np.zeros(gray.shape, np.uint8)
-            new_image = cv2.drawContours(mask, [screen_counter], 0, 255, -1, )
-            new_image = cv2.bitwise_and(image, image, mask=mask)
+            cv2.drawContours(mask, [screen_counter], 0, 255, -1, )
+            cv2.bitwise_and(image, image, mask=mask)
             x, y = np.where(mask == 255)
             top_x, top_y = np.min(x), np.min(y)
             bottom_x, bottom_y = np.max(x), np.max(y)
@@ -73,6 +68,8 @@ def get_plate_number():
             cv2.waitKey(0)
             cv2.destroyWindow('Frame')
             cv2.destroyWindow('Placa')
+
+        print("No hay contorno detectado.")
 
 
 if __name__ == '__main__':
