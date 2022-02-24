@@ -2,8 +2,12 @@ import cv2
 import imutils
 import numpy as np
 import pytesseract
+import re
 
 ESC = 27
+YELLOW_LB = [22, 93, 0]
+YELLOW_UP = [45, 255, 255]
+pytesseract.pytesseract.tesseract_cmd = r'C:\Users\Enrique Niebles\AppData\Local\Programs\Tesseract-OCR\tesseract'
 
 
 def close_camera():
@@ -12,19 +16,33 @@ def close_camera():
     print('Cámara cerrada.')
 
 
+def show_results(cropped_img, img, show=False):
+    # Extract text from image.
+    text = pytesseract.image_to_string(cropped_img, config='--psm 7')
+
+    match_plate_fmt = bool(re.fullmatch(r"(\w{3}[\s\-\*\.]\d{3})", text.strip()))
+
+    if match_plate_fmt and show:
+        print("La placa detectada es:", text)
+        cv2.imshow("Frame", img)
+        cv2.imshow('Placa', cropped_img)
+        # Press 'Enter' key to re-capture image.
+        cv2.waitKey(0)
+        cv2.destroyWindow('Frame')
+        cv2.destroyWindow('Placa')
+
+
 def get_plate_number():
     print('Obteniendo información de la placa...')
     while True:
         ret, frame = CAMERA.read()
 
         image = cv2.resize(frame, dsize=(640, 480), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
-        cv2.imshow('Input', image)
-
-        key_pressed = cv2.waitKey(1)
-        save_key = key_pressed & 0xFF
+        original = image.copy()
+        cv2.imshow('Entrada', image)
 
         # Close camera capture.
-        if key_pressed == ESC:
+        if cv2.waitKey(1) == ESC:
             close_camera()
             break
 
@@ -39,7 +57,7 @@ def get_plate_number():
         screen_counter = None
         for c in cnts:
             peri = cv2.arcLength(c, True)
-            approx = cv2.approxPolyDP(c, 0.018 * peri, True)
+            approx = cv2.approxPolyDP(c, 0.02 * peri, True)
             # Rectangular counter
             if len(approx) == 4:
                 screen_counter = approx
@@ -56,18 +74,7 @@ def get_plate_number():
             bottom_x, bottom_y = np.max(x), np.max(y)
             cropped_img = gray[top_x:bottom_x + 1, top_y:bottom_y + 1]
 
-            # Extract text from image.
-            pytesseract.pytesseract.tesseract_cmd = r'C:\Users\Enrique Niebles\AppData\Local\Programs\Tesseract-OCR\tesseract'
-            text = pytesseract.image_to_string(cropped_img, config='--psm 11')[
-                   0:7]  # Colombian plate has only 7 characters.
-            print("La placa detectada es:", text)
-            cv2.imshow("Frame", image)
-            cv2.imshow('Placa', cropped_img)
-
-            # Press 'Enter' key to re-capture image.
-            cv2.waitKey(0)
-            cv2.destroyWindow('Frame')
-            cv2.destroyWindow('Placa')
+            show_results(cropped_img, image, show=True)
 
         print("No hay contorno detectado.")
 
