@@ -16,14 +16,16 @@ def close_camera():
     print('Cámara cerrada.')
 
 
-def show_results(cropped_img, img, show=False):
+def show_results(cropped_img, img, dim, show=False):
     # Extract text from image.
     text = pytesseract.image_to_string(cropped_img, config='--psm 7')
 
     match_plate_fmt = bool(re.fullmatch(r"(\w{3}[\s\-\*\.]\d{3})", text.strip()))
+    x, y, w, h = dim
+    pos = (x - (w // 1000), y + (h // 10) - 15)
 
     if match_plate_fmt and show:
-        print("La placa detectada es:", text)
+        cv2.putText(img, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 4, cv2.LINE_AA)
         cv2.imshow("Frame", img)
         cv2.imshow('Placa', cropped_img)
         # Press 'Enter' key to re-capture image.
@@ -57,9 +59,10 @@ def get_plate_number():
         screen_counter = None
         for c in cnts:
             peri = cv2.arcLength(c, True)
-            approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+            approx = cv2.approxPolyDP(c, 0.03 * peri, True)
             # Rectangular counter
             if len(approx) == 4:
+                dim = cv2.boundingRect(c)
                 screen_counter = approx
                 break
 
@@ -74,9 +77,9 @@ def get_plate_number():
             bottom_x, bottom_y = np.max(x), np.max(y)
             cropped_img = gray[top_x:bottom_x + 1, top_y:bottom_y + 1]
 
-            show_results(cropped_img, image, show=True)
+            show_results(cropped_img, image, dim, show=True)
 
-        print("No hay contorno detectado.")
+        print("Detectando contornos...")
 
 
 if __name__ == '__main__':
