@@ -3,44 +3,66 @@ import imutils
 import numpy as np
 import pytesseract
 import re
+import csv
+from os import path, mkdir
+from datetime import datetime as dt
+from datetime import timedelta
 
+PATH = 'files/'
 ESC = 27
-YELLOW_LB = [22, 93, 0]
-YELLOW_UP = [45, 255, 255]
 pytesseract.pytesseract.tesseract_cmd = r'C:\Users\Enrique Niebles\AppData\Local\Programs\Tesseract-OCR\tesseract'
 
 
+def get_sec(time_str):
+    """Get Seconds from time."""
+    h, m, s = time_str.split(':')
+    return int(h) * 3600 + int(m) * 60 + int(float(s))
+
+
+def open_file():
+    if not path.isdir(PATH):
+        mkdir(PATH)
+        with open(f'{PATH}/placas.csv', 'a', encoding='UTF8') as f:
+            file = csv.writer(f)
+            file.writerow(['timestamp', 'date', 'time', 'placa'])
+
+
 def close_camera():
-    print('Cerrando cámara...')
     cv2.destroyAllWindows()
-    print('Cámara cerrada.')
 
 
 def show_results(cropped_img, img, dim, show=False):
     # Extract text from image.
-    text = pytesseract.image_to_string(cropped_img, config='--psm 7')
+    text = pytesseract.image_to_string(cropped_img, config='--psm 7').strip()
 
-    match_plate_fmt = bool(re.fullmatch(r"(\w{3}[\s\-\*\.]\d{3})", text.strip()))
+    match_plate_fmt = bool(re.fullmatch(r"(\w{3}[^\w]\d{3})", text))
     x, y, w, h = dim
     pos = (x - (w // 1000), y + (h // 10) - 15)
 
     if match_plate_fmt and show:
-        cv2.putText(img, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 4, cv2.LINE_AA)
-        cv2.imshow("Frame", img)
-        cv2.imshow('Placa', cropped_img)
-        # Press 'Enter' key to re-capture image.
-        cv2.waitKey(0)
-        cv2.destroyWindow('Frame')
-        cv2.destroyWindow('Placa')
+        text = re.sub(r"[^\w]", '-', text).upper()
+        date = dt.now()
+        datetime = date.isoformat(sep=' ', timespec='seconds').split()
+        with open(f'{PATH}/placas.csv', 'r', encoding='UTF8') as f:
+            prev_hour = dt.strptime(list(csv.DictReader(f))[-1]['time'], '%H:%M:%S')
+            time_diff = get_sec(str(date.time())) - get_sec(str(prev_hour.time()))
+            print(date, prev_hour, time_diff)
+        if time_diff > 180:
+            with open(f'{PATH}/placas.csv', 'a', newline='', encoding='UTF8') as f:
+                file = csv.writer(f)
+                file.writerow([date.timestamp(), datetime[0], datetime[1], text])
+            print([date.timestamp(), datetime[0], datetime[1], text])
+            cv2.putText(img, text, pos, cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 4, cv2.LINE_AA)
+            cv2.imshow("Placa", img)
+            # Press 'Enter' key to re-capture image.
+            # cv2.waitKey(0)
+            # cv2.destroyWindow('Placa')
 
 
 def get_plate_number():
-    print('Obteniendo información de la placa...')
     while True:
         ret, frame = CAMERA.read()
-
         image = cv2.resize(frame, dsize=(640, 480), fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
-        original = image.copy()
         cv2.imshow('Entrada', image)
 
         # Close camera capture.
@@ -79,13 +101,12 @@ def get_plate_number():
 
             show_results(cropped_img, image, dim, show=True)
 
-        print("Detectando contornos...")
-
 
 if __name__ == '__main__':
     CAMERA = cv2.VideoCapture(0)
     # Verify access to the camera.
     if CAMERA.isOpened():
+        open_file()
+        f = open(f'{PATH}/placas.csv', 'a', encoding='UTF8')
+        file = csv.writer(f)
         get_plate_number()
-
-    print("No se pudo abrir la cámara. Verifique los permisos.")
