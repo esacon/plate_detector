@@ -6,7 +6,6 @@ import re
 import csv
 from os import path, mkdir
 from datetime import datetime as dt
-from datetime import timedelta
 
 PATH = 'files/'
 ESC = 27
@@ -43,11 +42,14 @@ def show_results(cropped_img, img, dim, show=False):
         text = re.sub(r"[^\w]", '-', text).upper()
         date = dt.now()
         datetime = date.isoformat(sep=' ', timespec='seconds').split()
+        prev_plate = ''
         with open(f'{PATH}/placas.csv', 'r', encoding='UTF8') as f:
-            prev_hour = dt.strptime(list(csv.DictReader(f))[-1]['time'], '%H:%M:%S')
+            last_placa = list(csv.DictReader(f))[-1]
+            prev_hour = dt.strptime(last_placa['time'], '%H:%M:%S')
+            prev_plate = last_placa['placa']
             time_diff = get_sec(str(date.time())) - get_sec(str(prev_hour.time()))
             print(date, prev_hour, time_diff)
-        if time_diff > 180:
+        if time_diff > 60 and prev_plate != text:
             with open(f'{PATH}/placas.csv', 'a', newline='', encoding='UTF8') as f:
                 file = csv.writer(f)
                 file.writerow([date.timestamp(), datetime[0], datetime[1], text])
